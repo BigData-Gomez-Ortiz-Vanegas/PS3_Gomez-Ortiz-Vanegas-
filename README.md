@@ -1,7 +1,7 @@
 # Problem Set 3 - Gómez, Ortiz & Vanegas
 ## Project Introduction: Predicting Income
 
-The general objective of this project is to construct a predictive model of household poverty using the data of Colombia. 
+The general objective of this project is to construct a predictive model of housing prices for Bogotá and Medellín. 
 
 ## General Requirements
 [![R 4.2.0](https://img.shields.io/badge/R_Project-4.2.0-blue?logo=R)](https://www.r-project.org/)
