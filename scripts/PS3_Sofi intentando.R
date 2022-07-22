@@ -300,13 +300,15 @@ colnames(mnz_med)
 
 #uniformar
 
-house_union_new = st_transform(house_union, crs=st_crs(mnz_bog))
-mnz_med = st_transform(mnz_med, crs=st_crs(mnz_bog))
+house_union_bog = st_transform(house_union, crs=st_crs(mnz_bog))
+house_union_med = st_transform(house_union, crs=st_crs(mnz_med))
 
 #Aquí me parece mejor dejarlas separadas para juntar medellin y bogotá
 
-house_mnz_bog = st_join(x = house_union_new,y = mnz_bog)
-house_mnz_med = st_join(x = house_union_new,y = mnz_med)
+house_mnz_bog = st_join(x = house_union_bog,y = mnz_bog)
+
+sf_use_s2(FALSE)
+house_mnz_med = st_join(x = house_union_med,y = mnz_med)
 
 #definir polígono de chapinero
 chapinero <- getbb(place_name = "UPZ Chapinero, Bogota", 
@@ -314,9 +316,29 @@ chapinero <- getbb(place_name = "UPZ Chapinero, Bogota",
                    format_out = "sf_polygon") %>% .$multipolygon
 leaflet() %>% addTiles() %>% addPolygons(data=chapinero)
 
+#gráfica bogotá
+leaflet() %>% addTiles() %>% addPolygons(data=mnz_bog , color="red")%>% addCircles(data=house_union)
+
+#solo chapinero
+chapi_house_mnz <- house_mnz_bog[chapinero,]
+
+chapi_mnz <- mnz_bog[chapinero,]
+
+chapi_house <- house_union_bog[chapinero,]
+
+leaflet() %>% addTiles() %>% addPolygons(data = chapi_mnz , color="red")%>% addCircles(data = chapi_house)
+
 #definir polígono del poblado
-poblado <- getbb(place_name = "Comuna 14 - El Poblado, Medellin", 
-                 featuretype = "boundary:administrative", 
-                 format_out = "sf_polygon") %>% .$multipolygon
+poblado <- getbb(place_name = "Comuna 14 - El Poblado",
+                 featuretype = "boundary:administrative",
+                 format_out = "sf_polygon")
 leaflet() %>% addTiles() %>% addPolygons(data=poblado)
+
+pob_house_mnz <- house_mnz_med[poblado,]
+
+pob_mnz <- mnz_med[poblado,]
+
+pob_house <- house_union_med[poblado,]
+
+leaflet() %>% addTiles() %>% addPolygons(data = pob_mnz , color="red")%>% addCircles(data = pob_house)
 
