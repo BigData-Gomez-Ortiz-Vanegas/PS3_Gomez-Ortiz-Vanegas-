@@ -340,5 +340,105 @@ pob_mnz <- mnz_med[poblado,]
 
 pob_house <- house_union_med[poblado,]
 
-leaflet() %>% addTiles() %>% addPolygons(data = pob_mnz , color="red")%>% addCircles(data = pob_house)
+leaflet() %>% addTiles() %>% addPolygons(data = pob_mnz , color="red")%>% addCircles(data = pob_house) 
 
+# ------------------- Creación de nuevas variables--------------------
+
+###BOGOTÁ
+
+#1. Distancia mínima a los cerros orientales
+
+osm1 = opq(bbox = getbb("UPZ Chapinero, Bogota")) %>%
+  add_osm_feature(key="natural" , value="wood")  
+class(osm1)
+osm1_sf = osm1 %>% osmdata_sf()
+osm1_sf
+
+chapi_east = osm1_sf$osm_polygons %>% select(osm_id)
+
+leaflet() %>% addTiles() %>% addPolygons(data=chapi_mnz , color="red")%>% addCircles(data=chapi_house)%>% addPolygons(data=chapi_east , color="green")
+
+#distancia a los cerros
+
+dist_east = st_distance(x = chapi_house, y = chapi_east)
+dist_east
+
+#distancia mínima
+
+min_dist_east = apply(dist_east , 1 , min)
+min_dist_east
+
+#juntar a bases disponibles (aptos y aptos + manzanas)
+
+chapi_house$dist_east = min_dist_east
+chapi_house
+
+chapi_house_mnz$dist_east = min_dist_east
+chapi_house_mnz
+
+#entre más cerca al campo de golf mayor el precio?
+
+osm2 = opq(bbox = getbb("Comuna 14 - El Poblado")) %>%
+  add_osm_feature(key="leisure" , value="golf_course") 
+class(osm2)
+osm2_sf = pob_green %>% osmdata_sf()
+osm2_sf
+
+pob_golf = osm2_sf$osm_polygons %>% select(osm_id)
+
+leaflet() %>% addTiles() %>% addPolygons(data = pob_mnz , color="red")%>% addCircles(data = pob_house) %>% addPolygons(data = pob_east, color="green") 
+
+#2.
+bus_chapi = opq(bbox = st_bbox(chapi_mnz)) %>%
+  add_osm_feature(key = "amenity", value = "bus_station") %>%
+  osmdata_sf() %>% .$osm_points %>% select(osm_id,name)
+
+dist_chapi_bus = st_distance(x = chapi_house, y = bus_chapi)
+dist_chapi_bus
+
+min_dist_chapi_bus = apply(dist_chapi_bus , 1 , min)
+min_dist_chapi_bus
+
+chapi_house$dist_chapi_bus = min_dist_chapi_bus
+min_dist_chapi_bus
+
+chapi_house_mnz$dist_chapi_bus = min_dist_chapi_bus
+min_dist_chapi_bus
+
+###MEDELLÍN
+
+#1. Distancia mínima al campo de golf
+
+dist_golf = st_distance(x = pob_house, y = pob_golf)
+dist_golf
+
+#distancia mínima
+
+min_dist_golf = apply(dist_golf , 1 , min)
+min_dist_golf
+
+#juntar a bases disponibles (aptos y aptos + manzanas)
+
+pob_house$dist_golf = min_dist_golf
+pob_house
+
+pob_house_mnz$dist_golf = min_dist_golf
+pob_house_mnz
+
+#2.
+
+bus_pob = opq(bbox = st_bbox(pob_mnz)) %>%
+  add_osm_feature(key = "amenity", value = "bus_station") %>%
+  osmdata_sf() %>% .$osm_points %>% select(osm_id,name)
+
+dist_pob_bus = st_distance(x = pob_house, y = bus_pob)
+dist_pob_bus
+
+min_dist_pob_bus = apply(dist_pob_bus , 1 , min)
+min_dist_pob_bus
+
+pob_house$dist_pob_bus = min_dist_pob_bus
+min_dist_pob_bus
+
+pob_house_mnz$dist_pob_bus = min_dist_pob_bus
+min_dist_pob_bus
