@@ -314,10 +314,10 @@ house_mnz_med = st_join(x = house_union_med,y = mnz_med)
 chapinero <- getbb(place_name = "UPZ Chapinero, Bogota", 
                    featuretype = "boundary:administrative", 
                    format_out = "sf_polygon") %>% .$multipolygon
-leaflet() %>% addTiles() %>% addPolygons(data=chapinero)
+leaflet() %>% addTiles() %>% addPolygons(data=chapinero, col = "purple")
 
 #gráfica bogotá
-leaflet() %>% addTiles() %>% addPolygons(data=mnz_bog , color="red")%>% addCircles(data=house_union)
+#leaflet() %>% addTiles() %>% addPolygons(data=mnz_bog , color="red")%>% addCircles(data=house_union)
 
 #solo chapinero
 chapi_house_mnz <- house_mnz_bog[chapinero,]
@@ -332,7 +332,7 @@ leaflet() %>% addTiles() %>% addPolygons(data = chapi_mnz , color="red")%>% addC
 poblado <- getbb(place_name = "Comuna 14 - El Poblado",
                  featuretype = "boundary:administrative",
                  format_out = "sf_polygon")
-leaflet() %>% addTiles() %>% addPolygons(data=poblado)
+leaflet() %>% addTiles() %>% addPolygons(data=poblado, col = "purple")
 
 pob_house_mnz <- house_mnz_med[poblado,]
 
@@ -348,15 +348,15 @@ leaflet() %>% addTiles() %>% addPolygons(data = pob_mnz , color="red")%>% addCir
 
 #1. Distancia mínima a los cerros orientales
 
-osm1 = opq(bbox = getbb("UPZ Chapinero, Bogota")) %>%
-  add_osm_feature(key="natural" , value="wood")  
+osm1 = opq(bbox = getbb("Bogota")) %>%
+  add_osm_feature(key="natural" , value="peak")  
 class(osm1)
 osm1_sf = osm1 %>% osmdata_sf()
 osm1_sf
 
-chapi_east = osm1_sf$osm_polygons %>% select(osm_id)
+chapi_east = osm1_sf$osm_points %>% select(osm_id)
 
-leaflet() %>% addTiles() %>% addPolygons(data=chapi_mnz , color="red")%>% addCircles(data=chapi_house)%>% addPolygons(data=chapi_east , color="green")
+leaflet() %>% addTiles() %>% addCircles(data=chapi_house, col = "blue") %>% addCircles(data=chapi_east , color="green")
 
 #distancia a los cerros
 
@@ -375,18 +375,6 @@ chapi_house
 
 chapi_house_mnz$dist_east = min_dist_east
 chapi_house_mnz
-
-#entre más cerca al campo de golf mayor el precio?
-
-osm2 = opq(bbox = getbb("Comuna 14 - El Poblado")) %>%
-  add_osm_feature(key="leisure" , value="golf_course") 
-class(osm2)
-osm2_sf = pob_green %>% osmdata_sf()
-osm2_sf
-
-pob_golf = osm2_sf$osm_polygons %>% select(osm_id)
-
-leaflet() %>% addTiles() %>% addPolygons(data = pob_mnz , color="red")%>% addCircles(data = pob_house) %>% addPolygons(data = pob_east, color="green") 
 
 #2.
 bus_chapi = opq(bbox = st_bbox(chapi_mnz)) %>%
@@ -408,6 +396,18 @@ min_dist_chapi_bus
 ###MEDELLÍN
 
 #1. Distancia mínima al campo de golf
+
+#entre más cerca al campo de golf mayor el precio?
+
+osm2 = opq(bbox = getbb("Comuna 14 - El Poblado")) %>%
+  add_osm_feature(key="leisure" , value="golf_course") 
+class(osm2)
+osm2_sf = osm2 %>% osmdata_sf()
+osm2_sf
+
+pob_golf = osm2_sf$osm_polygons %>% select(osm_id)
+
+leaflet() %>% addTiles() %>% addPolygons(data = pob_mnz , color="red")%>% addCircles(data = pob_house) %>% addPolygons(data = pob_east, color="green") 
 
 dist_golf = st_distance(x = pob_house, y = pob_golf)
 dist_golf
@@ -442,3 +442,12 @@ min_dist_pob_bus
 
 pob_house_mnz$dist_pob_bus = min_dist_pob_bus
 min_dist_pob_bus
+
+#GRÁFICAS PARA DOCUMENTO (MOSTRANDO VARIABLES ESPACIALES DISPONIBLES)
+
+#Bogotá
+leaflet() %>% addTiles()%>% addCircles(data = chapi_house, col = "yellow") %>% addCircles(data = bus_chapi, col = "purple")%>% addCircles (data = chapi_east, color="red") 
+
+
+#Medellín
+leaflet() %>% addTiles() %>% addCircles(data = pob_house, col = "yellow") %>% addCircles(data = bus_pob, col = "purple") %>% addPolygons(data = pob_golf, color="red") 
