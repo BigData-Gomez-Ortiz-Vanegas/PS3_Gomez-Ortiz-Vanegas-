@@ -1,5 +1,7 @@
 ## Problem Set 3 - Spatial Data
-setwd('C:/Users/USER/OneDrive - Universidad de los Andes/Escritorio/BigData/PS1/PS3_Gomez-Ortiz-Vanegas-/stores')
+# Isa: setwd('C:/Users/USER/OneDrive - Universidad de los Andes/Escritorio/BigData/PS1/PS3_Gomez-Ortiz-Vanegas-/stores')
+# Sofi:
+setwd('C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores')
 rm(list=ls())
 # importar librerías
 ## Llamar pacman (contiene la función p_load)
@@ -29,6 +31,8 @@ house_test <- house_test %>% mutate(base = 'TEST')
 house_train <- house_train %>% mutate(base = 'TRAIN')
 
 house_union <- union_all(house_test, house_train)
+
+#------------------------ Imputación de datos -----------------------------#
 
 # Imputacion superficie:
 
@@ -374,6 +378,8 @@ house_union <- house_union %>%
   )
 table(is.na(house_union$bathrooms)) #16498 NAS
 
+#-------------------------------- Creación de variables ----------------------#
+
 # Crear variable tiene_terraza a partir de descripcion
 p1 = "[:space:]+terraza+[:space:]"
 p2 = "[:space:]+tiene terraza+[:space:]"
@@ -649,6 +655,11 @@ house_union <- house_union %>%
   )
 house_union <- house_union %>% select(-property_type)
 
+# Separar bogotá y medellín
+
+house_bog <- house_union %>% filter(l3 == 'Bogotá D.C')
+house_med <- house_union %>% filter(l3 == 'Medellín')
+
 # Separar test y train
 house_test <- house_union %>% filter(base == 'TEST')
 house_train <- house_union %>% filter(base == 'TRAIN')
@@ -678,3 +689,192 @@ write.csv(house_train_med ,"house_train_med")
 # Exportar train y test
 write.csv(house_test ,"house_test")
 write.csv(house_train ,"house_train")
+
+#------ Datos externos ---------
+
+#Importar datos de manzanas en Bogotá y Medellín
+
+#mnz_bog = st_read("MGN_URB_MANZANA.shp") #importar archivo con capa de manzanas
+
+#setwd('C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores') #direccionar a carpeta descargada
+#saveRDS(mnz_bog, "mnz_bog.rds")
+
+#* Se borró el archivo pesado y se dejó el archivo rds
+
+mnz_bog = import("C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores/mnz_bog.rds")
+colnames(mnz_bog)
+
+#setwd('C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores/05_ANTIOQUIA/URBANO') #direccionar a carpeta descargada
+
+#mnz_med = st_read("MGN_URB_MANZANA.shp") #importar archivo con capa de manzanas (ya no se usa este sino su verión liviana)
+
+
+##exportar manzanas medellín en formato más liviano - usamos ese de ahí en adelante
+
+#setwd('C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores') #direccionar a carpeta descargada
+#saveRDS(mnz_med, "mnz_med.rds")
+
+#* Se borró el archivo pesado y se dejó el archivo rds
+
+mnz_med = import("C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores/mnz_med.rds")
+colnames(mnz_med)
+
+#definir polígono de chapinero
+chapinero <- getbb(place_name = "UPZ Chapinero, Bogota", 
+                   featuretype = "boundary:administrative", 
+                   format_out = "sf_polygon") %>% .$multipolygon
+
+#definir polígono del poblado
+poblado <- getbb(place_name = "Comuna 14 - El Poblado",
+                 featuretype = "boundary:administrative",
+                 format_out = "sf_polygon")
+
+# limitar datos de manzanas al área de interés
+
+#uniformar
+
+house_bog = st_transform(house_bog, crs=st_crs(mnz_bog))
+house_med = st_transform(house_med, crs=st_crs(mnz_med))
+
+house_mnz_bog = st_join(x = house_bog,y = mnz_bog)
+
+sf_use_s2(FALSE)
+house_mnz_med = st_join(x = house_med,y = mnz_med)
+
+#Manzannas y apartamentos limitados a chapinero y el poblado:
+
+#Chapinero
+chapi_house_mnz <- house_mnz_bog[chapinero,]
+
+chapi_mnz <- mnz_bog[chapinero,]
+
+chapi_house <- house_bog[chapinero,]
+
+#El Poblado
+pob_house_mnz <- house_mnz_med[poblado,]
+
+pob_mnz <- mnz_med[poblado,]
+
+pob_house <- house_med[poblado,]
+
+## Primera variable para bogotá y medellín: Crear variable "distancia mínima a las estaciones de transporte masivo"
+## a partir de información externa (OSM)
+
+# Importar datos de estaciones de transporte masivo en el área de interés 
+
+bus_chapi = opq(bbox = st_bbox(chapi_mnz)) %>%
+  add_osm_feature(key = "amenity", value = "bus_station") %>%
+  osmdata_sf() %>% .$osm_points %>% select(osm_id,name)
+
+bus_pob = opq(bbox = st_bbox(pob_mnz)) %>%
+  add_osm_feature(key = "amenity", value = "bus_station") %>%
+  osmdata_sf() %>% .$osm_points %>% select(osm_id,name)
+
+# Medir distancia de los apartamentos a las estaciones de transporte
+
+dist_chapi_bus = st_distance(x = chapi_house, y = bus_chapi)
+dist_chapi_bus
+
+dist_pob_bus = st_distance(x = pob_house, y = bus_pob)
+dist_pob_bus
+
+# Medir la mínima distancia de los apartamentos a las estaciones de transporte
+
+min_dist_chapi_bus = apply(dist_chapi_bus , 1 , min)
+min_dist_chapi_bus
+
+min_dist_pob_bus = apply(dist_pob_bus , 1 , min)
+min_dist_pob_bus
+
+chapi_house$dist_chapi_bus = min_dist_chapi_bus #juntar a bases disponibles
+min_dist_chapi_bus
+
+pob_house$dist_pob_bus = min_dist_pob_bus
+min_dist_pob_bus
+
+chapi_house_mnz$dist_chapi_bus = min_dist_chapi_bus
+min_dist_chapi_bus
+
+pob_house_mnz$dist_pob_bus = min_dist_pob_bus
+min_dist_pob_bus
+
+## Segunda variable para bogotá: distancia mínima a los cerros orientales
+
+osm1 = opq(bbox = getbb("Bogota")) %>%
+  add_osm_feature(key="natural" , value="peak")  
+class(osm1)
+osm1_sf = osm1 %>% osmdata_sf()
+osm1_sf
+
+chapi_east = osm1_sf$osm_points %>% select(osm_id)
+
+#distancia a los cerros
+
+dist_east = st_distance(x = chapi_house, y = chapi_east)
+dist_east
+
+#distancia mínima
+
+min_dist_east = apply(dist_east , 1 , min)
+min_dist_east
+
+#juntar a bases disponibles (aptos y aptos + manzanas)
+
+chapi_house$dist_east = min_dist_east
+chapi_house
+
+chapi_house_mnz$dist_east = min_dist_east
+chapi_house_mnz
+
+## Segunda variable para medellín: distancia mínima al campo de golf
+
+osm2 = opq(bbox = getbb("Comuna 14 - El Poblado")) %>%
+  add_osm_feature(key="leisure" , value="golf_course") 
+class(osm2)
+osm2_sf = osm2 %>% osmdata_sf()
+osm2_sf
+
+pob_golf = osm2_sf$osm_polygons %>% select(osm_id)
+
+dist_golf = st_distance(x = pob_house, y = pob_golf)
+dist_golf
+
+#distancia mínima
+
+min_dist_golf = apply(dist_golf , 1 , min)
+min_dist_golf
+
+#juntar a bases disponibles (aptos y aptos + manzanas)
+
+pob_house$dist_golf = min_dist_golf
+pob_house
+
+pob_house_mnz$dist_golf = min_dist_golf
+pob_house_mnz
+
+#GRÁFICAS PARA DOCUMENTO (MOSTRANDO VARIABLES ESPACIALES DISPONIBLES)
+
+#Bogotá
+
+chapi_cerros <- chapi_east[chapinero,]
+
+ggplot()+
+  geom_sf(data=chapi_house, col = "black")+
+  geom_sf(data=bus_chapi, col ="blue")+
+  geom_sf(data=chapi_cerros, color="red")+
+  theme_bw()+
+  theme(axis.title=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size=6))
+
+#Medellín
+ggplot()+
+  geom_sf(data=pob_house, col = "black")+
+  geom_sf(data=bus_pob, col ="blue")+
+  geom_sf(data=pob_golf, color="red")+
+  theme_bw()+
+  theme(axis.title=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size=6))
