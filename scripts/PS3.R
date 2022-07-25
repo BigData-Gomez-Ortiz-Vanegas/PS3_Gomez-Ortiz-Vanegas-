@@ -17,10 +17,10 @@ p_load(tidyverse,rio,
 
 # Base de datos de entrenamiento y de prueba
 house_train = import("train.Rds")
-house_train = st_as_sf(house_train, coords=c("lon", "lat"), crs=4236)
+house_train = st_as_sf(house_train, coords=c("lon", "lat"), crs=4326)
 
 house_test = import("test.Rds")
-house_test = st_as_sf(house_test, coords=c("lon", "lat"), crs=4236)
+house_test = st_as_sf(house_test, coords=c("lon", "lat"), crs=4326)
 
 
 house_train_price <- house_train %>% select(price)
@@ -647,6 +647,32 @@ house_union <- house_union %>%
 house_union <- house_union %>% select(-bathrooms_2, -bathrooms)
 house_union$n_bathrooms <- as.numeric(house_union$n_bathrooms)
 
+#cambiar NAs en baños por 1 (asumiendo que todos los apartamentos tienen al menos 1 baño)
+
+pob_house <- pob_house%>% 
+  mutate(n_bathrooms = ifelse(is.na(n_bathrooms )== T,
+                              1,
+                              n_bathrooms )
+  )
+
+house_med <- pob_house%>% 
+  mutate(n_bathrooms = ifelse(is.na(n_bathrooms )== T,
+                              1,
+                              n_bathrooms )
+  )
+
+pob_house_mnz <- pob_house_mnz%>% 
+  mutate(n_bathrooms = ifelse(is.na(n_bathrooms )== T,
+                              1,
+                              n_bathrooms )
+  )
+
+pob_house_mnz <- pob_house_mnz%>% 
+  mutate(n_bathrooms = ifelse(is.na(n_bathrooms )== T,
+                              1,
+                              n_bathrooms )
+  )
+
 # Dicotomizar tipo de propiedad
 house_union <- house_union %>% 
   mutate(es_casa = ifelse(property_type == 'Casa',
@@ -679,6 +705,7 @@ house_test_bog <- house_test_bog %>% select(-l3)
 house_test_med <- house_test_med %>% select(-l3)
 house_train_bog <- house_train_bog %>% select(-l3)
 house_train_med <- house_train_med %>% select(-l3)
+
 
 # Exportar bog y med train y test
 write.csv(house_test_bog ,"house_test_bog")
@@ -724,8 +751,13 @@ chapinero <- getbb(place_name = "UPZ Chapinero, Bogota",
                    featuretype = "boundary:administrative", 
                    format_out = "sf_polygon") %>% .$multipolygon
 
-#definir polígono del poblado
+#definir polígono de El Poblado
 poblado <- getbb(place_name = "Comuna 14 - El Poblado",
+                 featuretype = "boundary:administrative",
+                 format_out = "sf_polygon")
+
+#definir polígono de Medellín
+medellin <- getbb(place_name = "Medellín",
                  featuretype = "boundary:administrative",
                  format_out = "sf_polygon")
 
@@ -733,70 +765,64 @@ poblado <- getbb(place_name = "Comuna 14 - El Poblado",
 
 #uniformar
 
-house_bog = st_transform(house_bog, crs=st_crs(mnz_bog))
-house_med = st_transform(house_med, crs=st_crs(mnz_med))
+house_train_bog = st_transform(house_train_bog, crs=4326)
+house_test_bog = st_transform(house_test_bog, crs=4326)
+house_train_med = st_transform(house_train_med, crs=4326)
+house_test_med = st_transform(house_test_med, crs=4326)
 
-house_mnz_bog = st_join(x = house_bog,y = mnz_bog)
 
-sf_use_s2(FALSE)
-house_mnz_med = st_join(x = house_med,y = mnz_med)
+#Manzanas y apartamentos limitados a chapinero y el poblado:
 
-#Manzannas y apartamentos limitados a chapinero y el poblado:
+#chapinero
 
-#Chapinero
-chapi_house_mnz <- house_mnz_bog[chapinero,]
-
+chapi_train <- house_train_bog[chapinero,]
+chapi_test <- house_test_bog[chapinero,]
 chapi_mnz <- mnz_bog[chapinero,]
 
-chapi_house <- house_bog[chapinero,]
+leaflet() %>% addTiles() %>% addPolygons (data = chapinero, color="red")  %>% addCircles (data = chapi_test, color="green") %>% addCircles (data = chapi_train, color="purple")
 
-#El Poblado
-pob_house_mnz <- house_mnz_med[poblado,]
-
-pob_mnz <- mnz_med[poblado,]
-
-pob_house <- house_med[poblado,]
+#El Poblado - para medellín casi todos los datos de train se encuentran fuera del poblado, así que se usarán los datos de toda la ciudad
 
 ## Primera variable para bogotá y medellín: Crear variable "distancia mínima a las estaciones de transporte masivo"
 ## a partir de información externa (OSM)
 
 # Importar datos de estaciones de transporte masivo en el área de interés 
 
-bus_chapi = opq(bbox = st_bbox(chapi_mnz)) %>%
+bus_bog = opq(bbox = st_bbox(chapi_mnz)) %>%
   add_osm_feature(key = "amenity", value = "bus_station") %>%
   osmdata_sf() %>% .$osm_points %>% select(osm_id,name)
 
-bus_pob = opq(bbox = st_bbox(pob_mnz)) %>%
+bus_ant = opq(bbox = st_bbox(mnz_med)) %>%
   add_osm_feature(key = "amenity", value = "bus_station") %>%
   osmdata_sf() %>% .$osm_points %>% select(osm_id,name)
+
+bus_med <- bus_ant[medellin,]
 
 # Medir distancia de los apartamentos a las estaciones de transporte
 
-dist_chapi_bus = st_distance(x = chapi_house, y = bus_chapi)
-dist_chapi_bus
+dist_med_bus_train = st_distance(x = house_train_med, y = bus_med)
+dist_med_bus_test = st_distance(x = house_test_med, y = bus_med)
 
-dist_pob_bus = st_distance(x = pob_house, y = bus_pob)
-dist_pob_bus
+dist_chapi_bus_train = st_distance(x = chapi_train, y = bus_bog)
+dist_chapi_bus_test = st_distance(x = chapi_test, y = bus_bog)
 
 # Medir la mínima distancia de los apartamentos a las estaciones de transporte
 
-min_dist_chapi_bus = apply(dist_chapi_bus , 1 , min)
-min_dist_chapi_bus
+min_med_bus_train = apply(dist_med_bus_train , 1 , min)
 
-min_dist_pob_bus = apply(dist_pob_bus , 1 , min)
-min_dist_pob_bus
+min_med_bus_test = apply(dist_med_bus_test , 1 , min)
 
-chapi_house$dist_chapi_bus = min_dist_chapi_bus #juntar a bases disponibles
-min_dist_chapi_bus
+min__chapi_bus_train = apply(dist_chapi_bus_train , 1 , min)
 
-pob_house$dist_pob_bus = min_dist_pob_bus
-min_dist_pob_bus
+min__chapi_bus_test = apply(dist_chapi_bus_test , 1 , min)
 
-chapi_house_mnz$dist_chapi_bus = min_dist_chapi_bus
-min_dist_chapi_bus
+house_train_med$dist_med_bus = min_med_bus_train #juntar a bases disponibles
 
-pob_house_mnz$dist_pob_bus = min_dist_pob_bus
-min_dist_pob_bus
+house_test_med$dist_med_bus = min_med_bus_test
+
+chapi_train$dist_chapi_bus = min__chapi_bus_train
+
+chapi_test$dist_chapi_bus = min__chapi_bus_test
 
 ## Segunda variable para bogotá: distancia mínima a los cerros orientales
 
@@ -810,25 +836,25 @@ chapi_east = osm1_sf$osm_points %>% select(osm_id)
 
 #distancia a los cerros
 
-dist_east = st_distance(x = chapi_house, y = chapi_east)
-dist_east
+dist_east_train = st_distance(x = chapi_train, y = chapi_east)
+
+dist_east_test = st_distance(x = chapi_test, y = chapi_east)
 
 #distancia mínima
 
-min_dist_east = apply(dist_east , 1 , min)
-min_dist_east
+min_east_train = apply(dist_east_train , 1 , min)
+
+min_east_test = apply(dist_east_test , 1 , min)
 
 #juntar a bases disponibles (aptos y aptos + manzanas)
 
-chapi_house$dist_east = min_dist_east
-chapi_house
+chapi_train$dist_east = min_east_train
 
-chapi_house_mnz$dist_east = min_dist_east
-chapi_house_mnz
+chapi_test$dist_east = min_east_test
 
 ## Segunda variable para medellín: distancia mínima al campo de golf
 
-osm2 = opq(bbox = getbb("Comuna 14 - El Poblado")) %>%
+osm2 = opq(bbox = getbb("Medellín")) %>%
   add_osm_feature(key="leisure" , value="golf_course") 
 class(osm2)
 osm2_sf = osm2 %>% osmdata_sf()
@@ -836,32 +862,46 @@ osm2_sf
 
 pob_golf = osm2_sf$osm_polygons %>% select(osm_id)
 
-dist_golf = st_distance(x = pob_house, y = pob_golf)
-dist_golf
+dist_golf_train = st_distance(x = house_train_med, y = pob_golf)
+
+dist_golf_test = st_distance(x = house_test_med, y = pob_golf)
 
 #distancia mínima
 
-min_dist_golf = apply(dist_golf , 1 , min)
-min_dist_golf
+min_golf_train = apply(dist_golf_train , 1 , min)
 
-#juntar a bases disponibles (aptos y aptos + manzanas)
+min_golf_test = apply(dist_golf_test , 1 , min)
 
-pob_house$dist_golf = min_dist_golf
-pob_house
+#juntar a bases disponibles
 
-pob_house_mnz$dist_golf = min_dist_golf
-pob_house_mnz
+house_train_med$dist_golf = min_golf_train
+
+house_test_med$dist_golf = min_golf_test
 
 #GRÁFICAS PARA DOCUMENTO (MOSTRANDO VARIABLES ESPACIALES DISPONIBLES)
 
 #Bogotá
 
-chapi_cerros <- chapi_east[chapinero,]
+library (sp)
+
+column1 <- cbind(c(4.6947,4.6201,4.6174,4.6805, 4.6947))
+column2 <- cbind(c(-74.0664,-74.0803,-74.0058,-73.9917, -74.0664))
+
+coords <- cbind(column2,column1)
+
+oriente_bogota <- st_polygon(list(coords))
+
+leaflet() %>% addTiles() %>% addPolygons (data = oriente_bogota, color="red")  %>% addPolygons (data = chapinero, color="green") 
+
+leaflet() %>% addTiles() %>% addPolygons (data = chapinero, color="red")  %>% addCircles (data = house_bog, color="green") 
+
+
+pob_cerros <- pob_east[oriente_bogota,]
 
 ggplot()+
-  geom_sf(data=chapi_house, col = "black")+
-  geom_sf(data=bus_chapi, col ="blue")+
-  geom_sf(data=chapi_cerros, color="red")+
+  geom_sf(data=pob_house, col = "black")+
+  geom_sf(data=bus_pob, col ="blue")+
+  geom_sf(data=pob_cerros, color="red")+
   theme_bw()+
   theme(axis.title=element_blank(),
         panel.grid.major = element_blank(),
@@ -870,11 +910,93 @@ ggplot()+
 
 #Medellín
 ggplot()+
-  geom_sf(data=pob_house, col = "black")+
-  geom_sf(data=bus_pob, col ="blue")+
+  geom_sf(data=house_med, col = "black")+
+  geom_sf(data=bus_med, col ="blue")+
   geom_sf(data=pob_golf, color="red")+
   theme_bw()+
   theme(axis.title=element_blank(),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         axis.text = element_text(size=6))
+
+#-------------------- Modelo de predicción ------------------------------------
+
+price_pob <- house_train$price[house_train$l3 == "Bogotá D.C",]
+pob_train$price = price_pob
+
+price_pob <- house_train$price[house_train$l3 == "Medellín",]
+pob_train$price = price_pob
+
+# Se van a analizar dos formas funcionales:
+
+# Forma lineal
+
+pob_1 <- pob_train$price ~ pob_train$dist_cerros + pob_train$dist_bus + pob_train$cuartos + pob_train$tiene_terraza + pob_train$tiene_garaje+ pob_train$surface
+poblado_1 <- pob_train$price ~ pob_train$dist_cerros + pob_train$dist_bus + pob_train$cuartos + pob_train$tiene_terraza + pob_train$tiene_garaje+ pob_train$surface
+
+# Forma cuadrática
+
+pob_train$dist_cerros2 <- pob_train$dist_cerros*pob_train$dist_cerros
+
+pob_train$dist_bus2 <- pob_train$dist_bus*pob_train$dist_bus
+
+pob_train$dist_golf2 <- pob_train$dist_golf*pob_train$dist_golf
+
+pob_train$surface2 <- pob_train$surface*pob_train$surface
+
+
+pob_train$dist_cerros2 <- pob_train$dist_cerros*pob_train$dist_cerros
+
+pob_train$dist_bus2 <- pob_train$dist_bus*pob_train$dist_bus
+
+pob_train$dist_golf2 <- pob_train$dist_golf*pob_train$dist_golf
+
+pob_train$surface2 <- pob_train$surface*pob_train$surface
+
+
+pob_2 <- pob_train$price ~ pob_train$dist_cerros2 + pob_train$dist_bus2 + pob_train$cuartos + pob_train$tiene_terraza + pob_train$tiene_garaje+ pob_train$surface2
+poblado_2 <- pob_train$price ~ pob_train$dist_cerros2 + pob_train$dist_bus2 + pob_train$cuartos + pob_train$tiene_terraza + pob_train$tiene_garaje+ pob_train$surface2
+
+## chapinero
+
+# Lineal
+
+lm_pob1 <- lm(pob_1, data=pob_train)
+pred_ols_pob <- predict(lm_pob1)
+
+lm_pob2 <- lm(pob_2, data=pob_train)
+pred_ols_pob <- predict(lm_pob2)
+
+# Random Forest
+
+rf_pob1 <- randomForest(pob_1, data=pob_train, proximity=TRUE)
+rf_pob2 <- randomForest(pob_2, data=pob_train, proximity=TRUE)
+
+# XGBoost
+
+xgb_pob1 <- xgboost(data = pob_train[,c("dist_cerros","dist_bus","surface","tiene_garaje","tiene_terraza","cuartos")], label = pob_train$price, max.depth = 6, eta = 0.5, nrounds = 2, objective = "reg:logistic")
+xgb_pob2 <- xgboost(data = pob_train[,c("dist_cerros","dist_bus","surface","tiene_garaje","tiene_terraza","cuartos")], label = pob_train$price, max.depth = 6, eta = 0.5, nrounds = 2, objective = "reg:squarederror")
+
+## Poblado
+
+# Lineal
+
+lm_pob1 <- lm(poblado_1, data=pob_train)
+pred_ols_pob <- predict(lm_pob1)
+
+lm_pob2 <- lm(poblado_2, data=pob_train)
+pred_ols_pob <- predict(lm_pob2)
+
+# Random Forest
+
+rf_pob1 <- randomForest(pob_1, data=pob_train, proximity=TRUE)
+rf_pob2 <- randomForest(pob_2, data=pob_train, proximity=TRUE)
+
+# XGBoost
+
+xgb_pob1 <- xgboost(data = pob_train[,c("dist_golf","dist_bus","surface","tiene_garaje","tiene_terraza","cuartos")], label = pob_train$price, max.depth = 6, eta = 0.5, nrounds = 2, objective = "reg:logistic")
+xgb_pob2 <- xgboost(data = pob_train[,c("dist_golf","dist_bus","surface","tiene_garaje","tiene_terraza","cuartos")], label = pob_train$price, max.depth = 6, eta = 0.5, nrounds = 2, objective = "reg:squarederror")
+
+
+
+
