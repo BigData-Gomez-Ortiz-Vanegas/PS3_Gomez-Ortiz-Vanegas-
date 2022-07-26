@@ -451,3 +451,7 @@ leaflet() %>% addTiles()%>% addCircles(data = chapi_house, col = "yellow") %>% a
 
 #Medellín
 leaflet() %>% addTiles() %>% addCircles(data = pob_house, col = "yellow") %>% addCircles(data = bus_pob, col = "purple") %>% addPolygons(data = pob_golf, color="red") 
+
+
+# Notas
+
