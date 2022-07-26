@@ -727,6 +727,7 @@ write.csv(house_train ,"house_train")
 #setwd('C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores') #direccionar a carpeta descargada
 #saveRDS(mnz_bog, "mnz_bog.rds")
 
+
 #* Se borró el archivo pesado y se dejó el archivo rds
 
 mnz_bog = import("C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores/mnz_bog.rds")
@@ -786,6 +787,20 @@ leaflet() %>% addTiles() %>% addPolygons (data = chapinero, color="red")  %>% ad
 
 ## Primera variable para bogotá y medellín: Crear variable "distancia mínima a las estaciones de transporte masivo"
 ## a partir de información externa (OSM)
+
+# Imputar variable de área con la mediana en las manzanas
+
+chapi_house_mnz <- st_join(chapi_train, chapi_mnz)
+
+chapi_house_mnz = chapi_house_mnz %>%
+  group_by(chapi_mnz$MANZ_CCNCT) %>% #agrupar por manzana, que es lo que acabamos de traer
+  mutate(new_surface=median(surface,na.rm=T)) #eduard sugiere usar mediana y no media porque media se distorsiona mucho
+
+med_house_mnz <- st_join(chapi_train, chapi_mnz)
+
+med_house_mnz = med_house_mnz %>%
+  group_by(mnz_med$MANZ_CCNCT) %>%
+  mutate(new_surface=median(surface,na.rm=T))
 
 # Importar datos de estaciones de transporte masivo en el área de interés 
 
@@ -1079,8 +1094,6 @@ base1_capi <-chapi_matriz_xg[,c(2,7,8,14,16)]
 base1_capi <- as.data.frame(base1_capi)
 
 
-
-
 set.seed(1)
 
 require(nnls)
@@ -1092,5 +1105,5 @@ listWrappers()
 
 fitprice_chapi <- SuperLearner(Y=outcome, X= data.frame(base1_capi), newX = NULL,
                   method = "method.NNLS", SL.library = c("SL.lm","SL.rpart","SL.xgboost"))
-
+fitprice_chapi
 
