@@ -790,17 +790,17 @@ leaflet() %>% addTiles() %>% addPolygons (data = chapinero, color="red")  %>% ad
 
 # Imputar variable de área con la mediana en las manzanas
 
-chapi_house_mnz <- st_join(chapi_train, chapi_mnz)
+#chapi_house_mnz <- st_join(chapi_train, chapi_mnz)
 
-chapi_house_mnz = chapi_house_mnz %>%
-  group_by(chapi_mnz$MANZ_CCNCT) %>% #agrupar por manzana, que es lo que acabamos de traer
-  mutate(new_surface=median(surface,na.rm=T)) #eduard sugiere usar mediana y no media porque media se distorsiona mucho
+#chapi_house_mnz = chapi_house_mnz %>%
+  #group_by(chapi_mnz$MANZ_CCNCT) %>% #agrupar por manzana, que es lo que acabamos de traer
+  #mutate(new_surface=median(surface,na.rm=T)) #eduard sugiere usar mediana y no media porque media se distorsiona mucho
 
-med_house_mnz <- st_join(chapi_train, chapi_mnz)
+#med_house_mnz <- st_join(chapi_train, chapi_mnz)
 
-med_house_mnz = med_house_mnz %>%
-  group_by(mnz_med$MANZ_CCNCT) %>%
-  mutate(new_surface=median(surface,na.rm=T))
+#med_house_mnz = med_house_mnz %>%
+  #group_by(mnz_med$MANZ_CCNCT) %>%
+  #mutate(new_surface=median(surface,na.rm=T))
 
 # Importar datos de estaciones de transporte masivo en el área de interés 
 
@@ -937,9 +937,6 @@ ggplot()+
 
 #-------------------- Modelo de predicción ------------------------------------
 
-# ajustar formato bases
-
-
 # Se van a analizar dos formas funcionales:
 
 
@@ -1005,7 +1002,7 @@ library(car)
 
 chapi_train <- as.data.frame(chapi_train)
 
-chapi_matriz_xg <- chapi_train[,c(1,3,5,6,7,10,11,12,13,14)]
+chapi_matriz_xg <- chapi_train[,c(1,3,5,6,7,10,11,12,13,14,15)]
 
 chapi_matriz_xg$identificador <- 1:13473
 
@@ -1087,6 +1084,8 @@ xgb_pob2 <- xgboost(data = med_matriz2_xg[,c(1,2,3,4,5,6,8)], label = house_trai
 install.packages("SuperLearner")
 require("SuperLearner")
 
+# Chapinero variables lineales
+
 base1_capi <-chapi_matriz_xg[,c(2,5,6,7,8,14,16)]
 base1_capi <- as.data.frame(base1_capi)
 outcome = chapi_matriz_xg$price
@@ -1107,3 +1106,35 @@ fitprice_chapi <- SuperLearner(Y=outcome, X= data.frame(base1_capi), newX = NULL
                   method = "method.NNLS", SL.library = c("SL.lm","SL.rpart","SL.xgboost"))
 fitprice_chapi
 
+# Chapinero variables cuadráticas
+
+base2_capi <-chapi_matriz_xg[,c(2,6,9,10,11,14,16)]
+base2_capi <- as.data.frame(base2_capi)
+base2_capi <-chapi_matriz_xg[,c(2,9,10,14,16)]
+base2_capi <- as.data.frame(base2_capi)
+
+fitprice2_chapi <- SuperLearner(Y=outcome, X= data.frame(base2_capi), newX = NULL,
+                               method = "method.NNLS", SL.library = c("SL.lm","SL.rpart","SL.xgboost"))
+fitprice2_chapi
+
+#Medellín variables lineales
+base1_med <-med_matriz_xg[,c(2,5,6,7,8,14,16)]
+base1_med <- as.data.frame(base1_med)
+outcome = med_matriz_xg$price
+base1_med <-med_matriz_xg[,c(2,7,8,14,16)]
+base1_med <- as.data.frame(base1_med)
+
+fitprice_med <- SuperLearner(Y=outcome, X= data.frame(base1_med), newX = NULL,
+                               method = "method.NNLS", SL.library = c("SL.lm","SL.rpart","SL.xgboost"))
+fitprice_med
+
+#Medellín variables cuadráticas
+
+base2_med <-med_matriz_xg[,c(2,6,9,10,11,14,16)]
+base2_med <- as.data.frame(base2_med)
+base2_med <-med_matriz_xg[,c(2,9,10,14,16)]
+base2_med <- as.data.frame(base2_med)
+
+fitprice2_med <- SuperLearner(Y=outcome, X= data.frame(base2_med), newX = NULL,
+                                method = "method.NNLS", SL.library = c("SL.lm","SL.rpart","SL.xgboost"))
+fitprice2_med
