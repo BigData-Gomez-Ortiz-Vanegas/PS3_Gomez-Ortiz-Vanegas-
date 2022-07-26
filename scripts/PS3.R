@@ -922,19 +922,11 @@ ggplot()+
 
 #-------------------- Modelo de predicción ------------------------------------
 
-# ajustar formato price
+# ajustar formato bases
 
-chapi_east <- as.data.frame(chapi_train)
-
-#st_geometry(chapi_train) = NULL 
-#st_geometry(house_train_med) = NULL
-
-#st_geometry(chapi_train$price) = NULL 
-#st_geometry(house_train_med$price) = NULL 
 
 # Se van a analizar dos formas funcionales:
 
-chapi_train <- as.data.frame(rasterToPoints(chapi_train,spatial = TRUE))
 
 # Forma lineal
 
@@ -964,14 +956,21 @@ med_2 <- house_train_med$price ~ house_train_med$dist_golf2 + house_train_med$di
 
 # Lineal
 
+st_geometry(chapi_train$price) = NULL
 chapi_train$price <-unlist(chapi_train$price)
 
 lm_chapi1 <- lm(chapi_1, data=chapi_train)
 pred_ols_chapi1 <- predict(lm_chapi1)
 
+summary(pred_ols_chapi1)
+library(stargazer)
+stargazer(lm_chapi1,type = "text",title = "Chapinero OLS", out = "chapi1.doc")
+
 
 lm_chapi2 <- lm(chapi_2, data=chapi_train)
 pred_ols_chapi2 <- predict(lm_chapi2)
+stargazer(lm_chapi2,type = "text",title = "Chapinero OLS", out = "chapi2.doc")
+
 
 # Random Forest - se utilizó rpart function para lidiar con los NAs
 
@@ -979,9 +978,6 @@ library(rpart)
 
 rf_chapi1 <- rpart(chapi_1, data=chapi_train)
 summary(rf_chapi1)
-
-rf_chapi2 <- rpart(chapi_2, data=chapi_train)
-summary(rf_chapi2)
 
 # XGBoost
 
@@ -992,7 +988,9 @@ library(stringr)
 library(caret)
 library(car)
 
-chapi_matriz_xg <- chapi_train[,c(1,3,4,5,6,9,10,11,12,13,14)]
+chapi_train <- as.data.frame(chapi_train)
+
+chapi_matriz_xg <- chapi_train[,c(1,3,5,6,7,10,11,12,13,14)]
 
 chapi_matriz_xg$identificador <- 1:13473
 
@@ -1011,39 +1009,41 @@ chapi_matriz1_xg <- as.matrix(chapi_matriz1_xg)
 #numeric_matrix_chapi <- chapi_matriz1_xg
 #write.csv(numeric_matrix_chapi,"numeric_matrix_chapi")
 
-chapi_matriz2_xg <- chapi_matriz_xg[,c(2,5,6,9,10,11,12,14,16)]
+chapi_matriz2_xg <- chapi_matriz_xg[,c(2,6,9,10,11,12,14,16)]
 chapi_matriz2_xg <- as.matrix(chapi_matriz2_xg)
-
-require(Matrix)
-require(data.table)
 
 
 xgb_chapi1 <- xgboost(data = chapi_matriz1_xg[,c(1,2,3,4,5,7,8)], label = chapi_train$price, max.depth = 6, eta = 0.5, nrounds = 100, objective = "reg:squarederror")
-xgb_chapi2 <- xgboost(data = chapi_matriz2_xg[,c(1,2,3,4,5,6,8)], label = chapi_train$price, max.depth = 6, eta = 0.5, nrounds = 100, objective = "reg:squarederror")
+
+xgb_chapi2 <- xgboost(data = chapi_matriz2_xg[,c(1,2,3,4,5,7,8)], label = chapi_train$price, max.depth = 6, eta = 0.5, nrounds = 100, objective = "reg:squarederror")
 
 ## Poblado
 
 # Lineal
 
+st_geometry(house_train_med$price) = NULL
 house_train_med$price <-unlist(house_train_med$price)
+
 
 lm_med1 <- lm(med_1, data=house_train_med)
 pred_ols_med1 <- predict(lm_med1)
+stargazer(lm_med1,type = "text",title = "Medellín OLS", out = "med1.doc")
 
 lm_med2 <- lm(med_2, data=house_train_med)
 pred_ols_med2 <- predict(lm_med2)
+stargazer(lm_med2,type = "text",title = "Medellín OLS", out = "med2.doc")
 
 # Random Forest
 
 rf_med1 <- rpart(med_1, data=house_train_med)
 summary(rf_med1)
 
-rf_med2 <- rpart(med_2, data=house_train_med)
-summary(rf_med2)
 
 # XGBoost
 
-med_matriz_xg <- house_train_med[,c(1,3,4,5,6,9,10,11,12,13,14)]
+house_train_med <- as.data.frame(house_train_med)
+
+med_matriz_xg <- house_train_med[,c(1,3,5,6,7,10,11,12,13,14,15)]
 
 med_matriz_xg$identificador <- 1:21356
 
@@ -1062,6 +1062,7 @@ med_matriz2_xg <- med_matriz_xg[,c(2,5,6,9,10,11,12,14,16)]
 med_matriz2_xg <- as.matrix(med_matriz2_xg)
 
 xgb_pob1 <- xgboost(data = med_matriz1_xg[,c(1,2,3,4,5,7,8)], label = house_train_med$price, max.depth = 6, eta = 0.5, nrounds = 100, objective = "reg:squarederror")
+
 xgb_pob2 <- xgboost(data = med_matriz2_xg[,c(1,2,3,4,5,6,8)], label = house_train_med$price, max.depth = 6, eta = 0.5, nrounds = 100, objective = "reg:squarederror")
 
 #falta hacer lo que toca hacer con test
@@ -1071,8 +1072,25 @@ xgb_pob2 <- xgboost(data = med_matriz2_xg[,c(1,2,3,4,5,6,8)], label = house_trai
 install.packages("SuperLearner")
 require("SuperLearner")
 
-base1_capi <- as.data.frame(chapi_matriz_xg)
+base1_capi <-chapi_matriz_xg[,c(2,5,6,7,8,14,16)]
+base1_capi <- as.data.frame(base1_capi)
+outcome = chapi_matriz_xg$price
+base1_capi <-chapi_matriz_xg[,c(2,7,8,14,16)]
+base1_capi <- as.data.frame(base1_capi)
 
-fitprice_chapi <- SuperLearner(Y=base1_capi$price, X= data.frame(base1_capi$dist_east+base1_capi$dist_chapi_bus+base1_capi$hay_terraza+base1_capi$hay_garaje+base1_capi$bedrooms+base1_capi$surface), #tal vez acá son comas
+
+
+
+set.seed(1)
+
+require(nnls)
+require(gam)
+require(splines)
+require(foreach)
+
+listWrappers()
+
+fitprice_chapi <- SuperLearner(Y=outcome, X= data.frame(base1_capi), newX = NULL,
                   method = "method.NNLS", SL.library = c("SL.lm","SL.rpart","SL.xgboost"))
+
 
