@@ -6,6 +6,7 @@ rm(list=ls())
 # importar librerías
 ## Llamar pacman (contiene la función p_load)
 require(pacman)
+install.packages("car")
 
 ## Llama/instala-llama las librerías listadas
 p_load(tidyverse,rio,
@@ -896,7 +897,7 @@ leaflet() %>% addTiles() %>% addPolygons (data = oriente_bogota, color="red")  %
 leaflet() %>% addTiles() %>% addPolygons (data = chapinero, color="red")  %>% addCircles (data = house_bog, color="green") 
 
 
-pob_cerros <- pob_east[oriente_bogota,]
+pob_cerros <- chapi_east[oriente_bogota,]
 
 ggplot()+
   geom_sf(data=pob_house, col = "black")+
@@ -921,82 +922,157 @@ ggplot()+
 
 #-------------------- Modelo de predicción ------------------------------------
 
-price_pob <- house_train$price[house_train$l3 == "Bogotá D.C",]
-pob_train$price = price_pob
+# ajustar formato price
 
-price_pob <- house_train$price[house_train$l3 == "Medellín",]
-pob_train$price = price_pob
+chapi_east <- as.data.frame(chapi_train)
+
+#st_geometry(chapi_train) = NULL 
+#st_geometry(house_train_med) = NULL
+
+#st_geometry(chapi_train$price) = NULL 
+#st_geometry(house_train_med$price) = NULL 
 
 # Se van a analizar dos formas funcionales:
 
+chapi_train <- as.data.frame(rasterToPoints(chapi_train,spatial = TRUE))
+
 # Forma lineal
 
-pob_1 <- pob_train$price ~ pob_train$dist_cerros + pob_train$dist_bus + pob_train$cuartos + pob_train$tiene_terraza + pob_train$tiene_garaje+ pob_train$surface
-poblado_1 <- pob_train$price ~ pob_train$dist_cerros + pob_train$dist_bus + pob_train$cuartos + pob_train$tiene_terraza + pob_train$tiene_garaje+ pob_train$surface
+chapi_1 <- chapi_train$price ~ chapi_train$dist_east+chapi_train$dist_chapi_bus + chapi_train$bedrooms + chapi_train$tiene_terraza + chapi_train$tiene_garaje+ chapi_train$surface
+med_1 <- house_train_med$price ~ house_train_med$dist_golf + house_train_med$dist_med_bus + house_train_med$bedrooms + house_train_med$tiene_terraza + house_train_med$tiene_garaje+ house_train_med$surface
 
 # Forma cuadrática
 
-pob_train$dist_cerros2 <- pob_train$dist_cerros*pob_train$dist_cerros
+chapi_train$dist_chapi_bus2 <- chapi_train$dist_east + chapi_train$dist_chapi_bus*chapi_train$dist_chapi_bus
 
-pob_train$dist_bus2 <- pob_train$dist_bus*pob_train$dist_bus
+chapi_train$dist_east2 <- chapi_train$dist_east*chapi_train$dist_east
 
-pob_train$dist_golf2 <- pob_train$dist_golf*pob_train$dist_golf
-
-pob_train$surface2 <- pob_train$surface*pob_train$surface
+chapi_train$surface2 <- chapi_train$surface*chapi_train$surface
 
 
-pob_train$dist_cerros2 <- pob_train$dist_cerros*pob_train$dist_cerros
+house_train_med$dist_med_bus2 <- house_train_med$dist_med_bus*house_train_med$dist_med_bus
 
-pob_train$dist_bus2 <- pob_train$dist_bus*pob_train$dist_bus
+house_train_med$dist_golf2 <- house_train_med$dist_golf*house_train_med$dist_golf
 
-pob_train$dist_golf2 <- pob_train$dist_golf*pob_train$dist_golf
-
-pob_train$surface2 <- pob_train$surface*pob_train$surface
+house_train_med$surface2 <- house_train_med$surface*house_train_med$surface
 
 
-pob_2 <- pob_train$price ~ pob_train$dist_cerros2 + pob_train$dist_bus2 + pob_train$cuartos + pob_train$tiene_terraza + pob_train$tiene_garaje+ pob_train$surface2
-poblado_2 <- pob_train$price ~ pob_train$dist_cerros2 + pob_train$dist_bus2 + pob_train$cuartos + pob_train$tiene_terraza + pob_train$tiene_garaje+ pob_train$surface2
+chapi_2 <- chapi_train$price ~ chapi_train$dist_east2 + chapi_train$dist_chapi_bus2 + chapi_train$bedrooms + chapi_train$tiene_terraza + chapi_train$tiene_garaje+ chapi_train$surface2
+med_2 <- house_train_med$price ~ house_train_med$dist_golf2 + house_train_med$dist_med_bus2 + house_train_med$bedrooms + house_train_med$tiene_terraza + house_train_med$tiene_garaje+ house_train_med$surface2
 
 ## chapinero
 
 # Lineal
 
-lm_pob1 <- lm(pob_1, data=pob_train)
-pred_ols_pob <- predict(lm_pob1)
+chapi_train$price <-unlist(chapi_train$price)
 
-lm_pob2 <- lm(pob_2, data=pob_train)
-pred_ols_pob <- predict(lm_pob2)
+lm_chapi1 <- lm(chapi_1, data=chapi_train)
+pred_ols_chapi1 <- predict(lm_chapi1)
 
-# Random Forest
 
-rf_pob1 <- randomForest(pob_1, data=pob_train, proximity=TRUE)
-rf_pob2 <- randomForest(pob_2, data=pob_train, proximity=TRUE)
+lm_chapi2 <- lm(chapi_2, data=chapi_train)
+pred_ols_chapi2 <- predict(lm_chapi2)
+
+# Random Forest - se utilizó rpart function para lidiar con los NAs
+
+library(rpart)
+
+rf_chapi1 <- rpart(chapi_1, data=chapi_train)
+summary(rf_chapi1)
+
+rf_chapi2 <- rpart(chapi_2, data=chapi_train)
+summary(rf_chapi2)
 
 # XGBoost
 
-xgb_pob1 <- xgboost(data = pob_train[,c("dist_cerros","dist_bus","surface","tiene_garaje","tiene_terraza","cuartos")], label = pob_train$price, max.depth = 6, eta = 0.5, nrounds = 2, objective = "reg:logistic")
-xgb_pob2 <- xgboost(data = pob_train[,c("dist_cerros","dist_bus","surface","tiene_garaje","tiene_terraza","cuartos")], label = pob_train$price, max.depth = 6, eta = 0.5, nrounds = 2, objective = "reg:squarederror")
+install.packages('xgboost')
+library(xgboost)
+library(readr)
+library(stringr)
+library(caret)
+library(car)
+
+chapi_matriz_xg <- chapi_train[,c(1,3,4,5,6,9,10,11,12,13,14)]
+
+chapi_matriz_xg$identificador <- 1:13473
+
+chapi_matriz_xg$terraza = chapi_matriz_xg[,"tiene_terraza"] == "1"
+chapi_matriz_xg$hay_terraza <- 0
+chapi_matriz_xg$hay_terraza[chapi_matriz_xg$terraza == "TRUE"] <- 1
+
+chapi_matriz_xg$garaje = chapi_matriz_xg[,"tiene_garaje"] == "1"
+chapi_matriz_xg$hay_garaje <- 0
+chapi_matriz_xg$hay_garaje[chapi_matriz_xg$garaje == "TRUE"] <- 1
+
+chapi_matriz1_xg <- chapi_matriz_xg[,c(2,5,6,7,8,12,14,16)]
+
+chapi_matriz1_xg <- as.matrix(chapi_matriz1_xg)
+
+#numeric_matrix_chapi <- chapi_matriz1_xg
+#write.csv(numeric_matrix_chapi,"numeric_matrix_chapi")
+
+chapi_matriz2_xg <- chapi_matriz_xg[,c(2,5,6,9,10,11,12,14,16)]
+chapi_matriz2_xg <- as.matrix(chapi_matriz2_xg)
+
+require(Matrix)
+require(data.table)
+
+
+xgb_chapi1 <- xgboost(data = chapi_matriz1_xg[,c(1,2,3,4,5,7,8)], label = chapi_train$price, max.depth = 6, eta = 0.5, nrounds = 100, objective = "reg:squarederror")
+xgb_chapi2 <- xgboost(data = chapi_matriz2_xg[,c(1,2,3,4,5,6,8)], label = chapi_train$price, max.depth = 6, eta = 0.5, nrounds = 100, objective = "reg:squarederror")
 
 ## Poblado
 
 # Lineal
 
-lm_pob1 <- lm(poblado_1, data=pob_train)
-pred_ols_pob <- predict(lm_pob1)
+house_train_med$price <-unlist(house_train_med$price)
 
-lm_pob2 <- lm(poblado_2, data=pob_train)
-pred_ols_pob <- predict(lm_pob2)
+lm_med1 <- lm(med_1, data=house_train_med)
+pred_ols_med1 <- predict(lm_med1)
+
+lm_med2 <- lm(med_2, data=house_train_med)
+pred_ols_med2 <- predict(lm_med2)
 
 # Random Forest
 
-rf_pob1 <- randomForest(pob_1, data=pob_train, proximity=TRUE)
-rf_pob2 <- randomForest(pob_2, data=pob_train, proximity=TRUE)
+rf_med1 <- rpart(med_1, data=house_train_med)
+summary(rf_med1)
+
+rf_med2 <- rpart(med_2, data=house_train_med)
+summary(rf_med2)
 
 # XGBoost
 
-xgb_pob1 <- xgboost(data = pob_train[,c("dist_golf","dist_bus","surface","tiene_garaje","tiene_terraza","cuartos")], label = pob_train$price, max.depth = 6, eta = 0.5, nrounds = 2, objective = "reg:logistic")
-xgb_pob2 <- xgboost(data = pob_train[,c("dist_golf","dist_bus","surface","tiene_garaje","tiene_terraza","cuartos")], label = pob_train$price, max.depth = 6, eta = 0.5, nrounds = 2, objective = "reg:squarederror")
+med_matriz_xg <- house_train_med[,c(1,3,4,5,6,9,10,11,12,13,14)]
 
+med_matriz_xg$identificador <- 1:21356
 
+med_matriz_xg$terraza = med_matriz_xg[,"tiene_terraza"] == "1"
+med_matriz_xg$hay_terraza <- 0
+med_matriz_xg$hay_terraza[med_matriz_xg$terraza == "TRUE"] <- 1
 
+med_matriz_xg$garaje = med_matriz_xg[,"tiene_garaje"] == "1"
+med_matriz_xg$hay_garaje <- 0
+med_matriz_xg$hay_garaje[med_matriz_xg$garaje == "TRUE"] <- 1
+
+med_matriz1_xg <- med_matriz_xg[,c(2,5,6,7,8,12,14,16)]
+med_matriz1_xg <- as.matrix(med_matriz1_xg)
+
+med_matriz2_xg <- med_matriz_xg[,c(2,5,6,9,10,11,12,14,16)]
+med_matriz2_xg <- as.matrix(med_matriz2_xg)
+
+xgb_pob1 <- xgboost(data = med_matriz1_xg[,c(1,2,3,4,5,7,8)], label = house_train_med$price, max.depth = 6, eta = 0.5, nrounds = 100, objective = "reg:squarederror")
+xgb_pob2 <- xgboost(data = med_matriz2_xg[,c(1,2,3,4,5,6,8)], label = house_train_med$price, max.depth = 6, eta = 0.5, nrounds = 100, objective = "reg:squarederror")
+
+#falta hacer lo que toca hacer con test
+
+#-------- Superlearners --------------
+
+install.packages("SuperLearner")
+require("SuperLearner")
+
+base1_capi <- as.data.frame(chapi_matriz_xg)
+
+fitprice_chapi <- SuperLearner(Y=base1_capi$price, X= data.frame(base1_capi$dist_east+base1_capi$dist_chapi_bus+base1_capi$hay_terraza+base1_capi$hay_garaje+base1_capi$bedrooms+base1_capi$surface), #tal vez acá son comas
+                  method = "method.NNLS", SL.library = c("SL.lm","SL.rpart","SL.xgboost"))
 
