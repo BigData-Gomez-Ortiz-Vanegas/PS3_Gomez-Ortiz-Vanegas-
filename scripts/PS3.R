@@ -720,33 +720,107 @@ write.csv(house_train ,"house_train")
 
 #------ Datos externos ---------
 
-#Importar datos de manzanas en Bogotá y Medellín
-
-#mnz_bog = st_read("MGN_URB_MANZANA.shp") #importar archivo con capa de manzanas
-
-#setwd('C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores') #direccionar a carpeta descargada
-#saveRDS(mnz_bog, "mnz_bog.rds")
-
-
-#* Se borró el archivo pesado y se dejó el archivo rds
-
-mnz_bog = import("C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores/mnz_bog.rds")
+# Manzanas
+mnz_bog = import("mnz_bog.rds")
 colnames(mnz_bog)
-
-#setwd('C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores/05_ANTIOQUIA/URBANO') #direccionar a carpeta descargada
-
-#mnz_med = st_read("MGN_URB_MANZANA.shp") #importar archivo con capa de manzanas (ya no se usa este sino su verión liviana)
-
-
-##exportar manzanas medellín en formato más liviano - usamos ese de ahí en adelante
-
-#setwd('C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores') #direccionar a carpeta descargada
-#saveRDS(mnz_med, "mnz_med.rds")
-
-#* Se borró el archivo pesado y se dejó el archivo rds
-
-mnz_med = import("C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores/mnz_med.rds")
+mnz_med = import("mnz_med.rds")
 colnames(mnz_med)
+
+
+mnz_bog = st_transform(mnz_bog, crs=4326)
+mnz_med = st_transform(mnz_med, crs=4326)
+
+# Unir manzanas a base
+house_bog_mnz = st_join(house_bog,mnz_bog)
+colnames(house_bog_mnz)
+
+sf_use_s2(FALSE)
+house_med_mnz = st_join(house_med,mnz_med)
+colnames(house_med_mnz)
+
+#Imputar supericie mediana de la manzana - Bogota
+house_bog_mnz = house_bog_mnz %>%
+  group_by(MANZ_CCNCT) %>%
+  mutate(surface2=median(surface,na.rm=T))
+
+table(is.na(house_bog_mnz$surface2))
+
+house_med_mnz = house_med_mnz %>%
+  group_by(MANZ_CCNCT) %>%
+  mutate(surface2=median(surface,na.rm=T))
+
+table(is.na(house_med_mnz$surface2))
+
+# Guardar nuevas bases con manzana
+house_bog_mnz_train <- house_bog_mnz %>% filter(base == 'TRAIN') %>%
+  select(-base,
+         -DPTO_CCDGO,
+         -MPIO_CCDGO,
+         -CLAS_CCDGO,  
+         -SETR_CCDGO,
+         -SECR_CCDGO,
+         -CPOB_CCDGO,
+         -SETU_CCDGO,
+         -SECU_CCDGO,
+         -MANZ_CCDGO,
+         -MANZ_CCNCT,   
+         -MANZ_CAG,
+         -Shape_Leng,
+         -Shape_Area)
+
+house_bog_mnz_test <- house_bog_mnz %>% filter(base == 'TEST') %>%
+  select(-base,
+         -DPTO_CCDGO,
+         -MPIO_CCDGO,
+         -CLAS_CCDGO,  
+         -SETR_CCDGO,
+         -SECR_CCDGO,
+         -CPOB_CCDGO,
+         -SETU_CCDGO,
+         -SECU_CCDGO,
+         -MANZ_CCDGO,
+         -MANZ_CCNCT,   
+         -MANZ_CAG,
+         -Shape_Leng,
+         -Shape_Area)
+
+house_med_mnz_train <- house_med_mnz %>% filter(base == 'TRAIN') %>%
+  select(-base,
+         -DPTO_CCDGO,
+         -MPIO_CCDGO,
+         -CLAS_CCDGO,  
+         -SETR_CCDGO,
+         -SECR_CCDGO,
+         -CPOB_CCDGO,
+         -SETU_CCDGO,
+         -SECU_CCDGO,
+         -MANZ_CCDGO,
+         -MANZ_CCNCT,   
+         -MANZ_CAG,
+         -Shape_Leng,
+         -Shape_Area)
+
+house_med_mnz_test <- house_med_mnz %>% filter(base == 'TEST') %>%
+  select(-base,
+         -DPTO_CCDGO,
+         -MPIO_CCDGO,
+         -CLAS_CCDGO,  
+         -SETR_CCDGO,
+         -SECR_CCDGO,
+         -CPOB_CCDGO,
+         -SETU_CCDGO,
+         -SECU_CCDGO,
+         -MANZ_CCDGO,
+         -MANZ_CCNCT,   
+         -MANZ_CAG,
+         -Shape_Leng,
+         -Shape_Area)
+
+saveRDS(house_bog_mnz_train, "house_bog_mnz_train.rds")
+saveRDS(house_bog_mnz_test, "house_bog_mnz_test.rds")
+saveRDS(house_med_mnz_train, "house_med_mnz_train.rds")
+saveRDS(house_med_mnz_test, "house_med_mnz_test.rds")
+
 
 #definir polígono de chapinero
 chapinero <- getbb(place_name = "UPZ Chapinero, Bogota", 
@@ -763,6 +837,8 @@ medellin <- getbb(place_name = "Medellín",
                  featuretype = "boundary:administrative",
                  format_out = "sf_polygon")
 
+leaflet() %>% addTiles() %>% addPolygons (data = medellin, color="purple") 
+
 # limitar datos de manzanas al área de interés
 
 #uniformar
@@ -777,32 +853,23 @@ house_test_med = st_transform(house_test_med, crs=4326)
 
 #chapinero
 
-chapi_train <- house_train_bog[chapinero,]
-chapi_test <- house_test_bog[chapinero,]
+chapi_train <- house_bog_mnz_train[chapinero,]
+chapi_test <- house_bog_mnz_test[chapinero,]
 chapi_mnz <- mnz_bog[chapinero,]
 
-leaflet() %>% addTiles() %>% addPolygons (data = chapinero, color="red")  %>% addCircles (data = chapi_test, color="green") %>% addCircles (data = chapi_train, color="purple")
+house_train_med <- house_med_mnz_train[medellin,]
+house_test_med <- house_med_mnz_test[medellin,]
+med_mnz <- mnz_med[medellin,]
+
+#leaflet() %>% addTiles() %>% addPolygons (data = chapinero, color="red")  %>% addCircles (data = chapi_test, color="green") %>% addCircles (data = chapi_train, color="purple")
 
 #El Poblado - para medellín casi todos los datos de train se encuentran fuera del poblado, así que se usarán los datos de toda la ciudad
 
 ## Primera variable para bogotá y medellín: Crear variable "distancia mínima a las estaciones de transporte masivo"
 ## a partir de información externa (OSM)
 
-# Imputar variable de área con la mediana en las manzanas
-
-#chapi_house_mnz <- st_join(chapi_train, chapi_mnz)
-
-#chapi_house_mnz = chapi_house_mnz %>%
-  #group_by(chapi_mnz$MANZ_CCNCT) %>% #agrupar por manzana, que es lo que acabamos de traer
-  #mutate(new_surface=median(surface,na.rm=T)) #eduard sugiere usar mediana y no media porque media se distorsiona mucho
-
-#med_house_mnz <- st_join(chapi_train, chapi_mnz)
-
-#med_house_mnz = med_house_mnz %>%
-  #group_by(mnz_med$MANZ_CCNCT) %>%
-  #mutate(new_surface=median(surface,na.rm=T))
-
 # Importar datos de estaciones de transporte masivo en el área de interés 
+# Bases train
 
 bus_bog = opq(bbox = st_bbox(chapi_mnz)) %>%
   add_osm_feature(key = "amenity", value = "bus_station") %>%
@@ -937,6 +1004,8 @@ ggplot()+
 
 #-------------------- Modelo de predicción ------------------------------------
 
+# Importar bases con manzanas imputadas
+
 # Se van a analizar dos formas funcionales:
 
 
@@ -951,14 +1020,14 @@ chapi_train$dist_chapi_bus2 <- chapi_train$dist_east + chapi_train$dist_chapi_bu
 
 chapi_train$dist_east2 <- chapi_train$dist_east*chapi_train$dist_east
 
-chapi_train$surface2 <- chapi_train$surface*chapi_train$surface
+chapi_train$surface22 <- chapi_train$surface*chapi_train$surface
 
 
 house_train_med$dist_med_bus2 <- house_train_med$dist_med_bus*house_train_med$dist_med_bus
 
 house_train_med$dist_golf2 <- house_train_med$dist_golf*house_train_med$dist_golf
 
-house_train_med$surface2 <- house_train_med$surface*house_train_med$surface
+house_train_med$surface22 <- house_train_med$surface*house_train_med$surface
 
 
 chapi_2 <- chapi_train$price ~ chapi_train$dist_east2 + chapi_train$dist_chapi_bus2 + chapi_train$bedrooms + chapi_train$tiene_terraza + chapi_train$tiene_garaje+ chapi_train$surface2
@@ -1088,7 +1157,7 @@ require("SuperLearner")
 
 base1_capi <-chapi_matriz_xg[,c(2,5,6,7,8,14,16)]
 base1_capi <- as.data.frame(base1_capi)
-outcome = chapi_matriz_xg$price
+outcome_chapi = chapi_matriz_xg$price
 base1_capi <-chapi_matriz_xg[,c(2,7,8,14,16)]
 base1_capi <- as.data.frame(base1_capi)
 
@@ -1102,7 +1171,7 @@ require(foreach)
 
 listWrappers()
 
-fitprice_chapi <- SuperLearner(Y=outcome, X= data.frame(base1_capi), newX = NULL,
+fitprice_chapi <- SuperLearner(Y=outcome_chapi, X= data.frame(base1_capi), newX = NULL,
                   method = "method.NNLS", SL.library = c("SL.lm","SL.rpart","SL.xgboost"))
 fitprice_chapi
 
@@ -1113,7 +1182,7 @@ base2_capi <- as.data.frame(base2_capi)
 base2_capi <-chapi_matriz_xg[,c(2,9,10,14,16)]
 base2_capi <- as.data.frame(base2_capi)
 
-fitprice2_chapi <- SuperLearner(Y=outcome, X= data.frame(base2_capi), newX = NULL,
+fitprice2_chapi <- SuperLearner(Y=outcome_chapi, X= data.frame(base2_capi), newX = NULL,
                                method = "method.NNLS", SL.library = c("SL.lm","SL.rpart","SL.xgboost"))
 fitprice2_chapi
 
@@ -1132,9 +1201,17 @@ fitprice_med
 
 base2_med <-med_matriz_xg[,c(2,6,9,10,11,14,16)]
 base2_med <- as.data.frame(base2_med)
+outcome_med = med_matriz_xg$price
 base2_med <-med_matriz_xg[,c(2,9,10,14,16)]
 base2_med <- as.data.frame(base2_med)
 
-fitprice2_med <- SuperLearner(Y=outcome, X= data.frame(base2_med), newX = NULL,
+fitprice2_med <- SuperLearner(Y=outcome_med, X= data.frame(base2_med), newX = NULL,
                                 method = "method.NNLS", SL.library = c("SL.lm","SL.rpart","SL.xgboost"))
 fitprice2_med
+
+pred_chapi <- predict(fitprice2_chapi, data=chapi_test)
+print(pred_chapi)
+
+pred_med <- predict(fitprice2_med, data=house_test_med)
+
+mse_chapi <- with(chapi_train, mean(price - predict(fitprice2_chapi))^2)
