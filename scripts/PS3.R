@@ -827,6 +827,8 @@ chapinero <- getbb(place_name = "UPZ Chapinero, Bogota",
                    featuretype = "boundary:administrative", 
                    format_out = "sf_polygon") %>% .$multipolygon
 
+#leaflet() %>% addTiles() %>% addPolygons (data = chapinero, color="purple") %>% addCircles (data = chapi_train, color="black") 
+
 #definir polígono de El Poblado
 poblado <- getbb(place_name = "Comuna 14 - El Poblado",
                  featuretype = "boundary:administrative",
@@ -837,29 +839,30 @@ medellin <- getbb(place_name = "Medellín",
                  featuretype = "boundary:administrative",
                  format_out = "sf_polygon")
 
-leaflet() %>% addTiles() %>% addPolygons (data = medellin, color="purple") 
 
 # limitar datos de manzanas al área de interés
 
-#uniformar
+house_train_bog <-house_bog_mnz_train
+house_test_bog <- house_bog_mnz_test
+house_train_med <-house_med_mnz_train
+house_test_med <-house_med_mnz_test
 
 house_train_bog = st_transform(house_train_bog, crs=4326)
 house_test_bog = st_transform(house_test_bog, crs=4326)
 house_train_med = st_transform(house_train_med, crs=4326)
 house_test_med = st_transform(house_test_med, crs=4326)
 
+house_train_bog <-st_join(house_train_bog,house_train_price)
+house_train_med <-st_join(house_train_med,house_train_price)
 
 #Manzanas y apartamentos limitados a chapinero y el poblado:
 
 #chapinero
 
-chapi_train <- house_bog_mnz_train[chapinero,]
-chapi_test <- house_bog_mnz_test[chapinero,]
+chapi_train <- house_train_bog[chapinero,]
+chapi_test <- house_test_bog[chapinero,]
 chapi_mnz <- mnz_bog[chapinero,]
 
-house_train_med <- house_med_mnz_train[medellin,]
-house_test_med <- house_med_mnz_test[medellin,]
-med_mnz <- mnz_med[medellin,]
 
 #leaflet() %>% addTiles() %>% addPolygons (data = chapinero, color="red")  %>% addCircles (data = chapi_test, color="green") %>% addCircles (data = chapi_train, color="purple")
 
@@ -935,6 +938,9 @@ chapi_train$dist_east = min_east_train
 
 chapi_test$dist_east = min_east_test
 
+saveRDS(chapi_train, "chapi_train")
+saveRDS(chapi_test, "chapi_test")
+
 ## Segunda variable para medellín: distancia mínima al campo de golf
 
 osm2 = opq(bbox = getbb("Medellín")) %>%
@@ -960,6 +966,9 @@ min_golf_test = apply(dist_golf_test , 1 , min)
 house_train_med$dist_golf = min_golf_train
 
 house_test_med$dist_golf = min_golf_test
+
+saveRDS(house_train_med, "house_train_med")
+saveRDS(house_test_med, "house_test_med")
 
 #GRÁFICAS PARA DOCUMENTO (MOSTRANDO VARIABLES ESPACIALES DISPONIBLES)
 
@@ -1004,7 +1013,6 @@ ggplot()+
 
 #-------------------- Modelo de predicción ------------------------------------
 
-# Importar bases con manzanas imputadas
 
 # Se van a analizar dos formas funcionales:
 
@@ -1150,6 +1158,13 @@ xgb_pob2 <- xgboost(data = med_matriz2_xg[,c(1,2,3,4,5,6,8)], label = house_trai
 
 #-------- Superlearners --------------
 
+base1_capi = import("base1_capi.rds")
+base2_capi = import("base2_capi.rds")
+base1_med = import("base1_med.rds")
+base2_med = import("base2_med.rds")
+outcome_chapi = import("outcome_chapi.rds")
+outcome_med = import("outcome_med.rds")
+
 install.packages("SuperLearner")
 require("SuperLearner")
 
@@ -1160,9 +1175,13 @@ base1_capi <- as.data.frame(base1_capi)
 outcome_chapi = chapi_matriz_xg$price
 base1_capi <-chapi_matriz_xg[,c(2,7,8,14,16)]
 base1_capi <- as.data.frame(base1_capi)
+base1_capi <- as.matrix(base1_capi)
+base1_capi <- as.data.frame(base1_capi)
+
+table(is.na(base1_capi$bedrooms))
 
 
-set.seed(1)
+set.seed(10101)
 
 require(nnls)
 require(gam)
