@@ -1,4 +1,4 @@
-## Problem Set 3 - Spatial Data
+## Problem Set 3 - Spatial Data 
 # Isa: setwd('C:/Users/USER/OneDrive - Universidad de los Andes/Escritorio/BigData/PS1/PS3_Gomez-Ortiz-Vanegas-/stores')
 # Sofi:
 setwd('C:/Users/Sofia/Documents/2022-2/BigData/PS3_Gomez-Ortiz-Vanegas-/stores')
